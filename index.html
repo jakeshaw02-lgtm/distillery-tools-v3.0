@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Distillery Tools</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0A0C0F;--surface:#12161C;--surface2:#1C2330;--border:#1E2530;--teal:#4ABFB0;--teal-dim:#1A4A44;--teal-light:#6DD6C8;--amber:#C8860A;--amber-light:#E8A020;--gold:#D4A843;--text:#CDD9E5;--text-dim:#5A6A7A;--text-bright:#E6EDF3;--highlight:#7BE0D5;--red:#E05C6A}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'Courier Prime',monospace;min-height:100vh;overflow-x:hidden;background-image:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(74,191,176,0.07) 0%,transparent 70%),radial-gradient(ellipse 50% 40% at 90% 100%,rgba(200,134,10,0.04) 0%,transparent 60%),repeating-linear-gradient(90deg,transparent,transparent 79px,rgba(255,255,255,0.008) 79px,rgba(255,255,255,0.008) 80px),repeating-linear-gradient(0deg,transparent,transparent 79px,rgba(255,255,255,0.008) 79px,rgba(255,255,255,0.008) 80px)}
+
+    /* SIDEBAR */
+    .sidebar-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.6);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity 0.25s}
+    .sidebar-overlay.open{opacity:1;pointer-events:all}
+    .sidebar{position:fixed;top:0;left:0;bottom:0;width:min(320px,88vw);z-index:1001;background:#0D1219;border-right:1px solid rgba(74,191,176,0.15);transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column}
+    .sidebar.open{transform:translateX(0)}
+    .sidebar-head{padding:22px 18px 14px;border-bottom:1px solid rgba(74,191,176,0.1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .sidebar-title{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;color:var(--text-bright)}
+    .sidebar-title em{font-style:italic;color:var(--teal-light)}
+    .sidebar-close{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;padding:4px 8px;border-radius:4px;transition:color 0.15s}
+    .sidebar-close:hover{color:var(--text)}
+
+    .sidebar-nav{padding:14px;border-bottom:1px solid rgba(74,191,176,0.08);display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+    .sidebar-nav-hdr{font-size:0.55rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-dim);margin-bottom:6px;padding-left:2px}
+    .nav-btn{width:100%;padding:11px 14px;font-family:'Courier Prime',monospace;font-size:0.72rem;font-weight:700;letter-spacing:0.1em;background:transparent;color:var(--text-dim);border:1px solid transparent;border-radius:4px;cursor:pointer;transition:all 0.15s;text-align:left;display:flex;align-items:center;gap:10px}
+    .nav-btn:hover{color:var(--text);background:rgba(255,255,255,0.03)}
+    .nav-btn.active{color:var(--teal-light);background:rgba(74,191,176,0.08);border-color:rgba(74,191,176,0.18)}
+    .nav-icon{font-size:0.9rem;width:22px;text-align:center}
+
+    .sidebar-actions{padding:12px 14px;display:flex;flex-direction:column;gap:7px;border-bottom:1px solid rgba(74,191,176,0.08);flex-shrink:0}
+    .sidebar-actions-hdr{font-size:0.55rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px;padding-left:2px}
+    .sidebar-btn{width:100%;padding:10px 14px;font-family:'Courier Prime',monospace;font-size:0.7rem;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;border-radius:4px;cursor:pointer;transition:all 0.18s;text-align:left}
+    .sidebar-btn.primary{background:var(--teal);color:var(--bg);border:none}
+    .sidebar-btn.primary:hover{background:var(--teal-light);box-shadow:0 0 18px rgba(74,191,176,0.3)}
+    .sidebar-btn.secondary{background:transparent;color:var(--amber-light);border:1px solid rgba(200,134,10,0.4)}
+    .sidebar-btn.secondary:hover{border-color:var(--amber-light)}
+    .sidebar-btn.export{background:transparent;color:var(--text-dim);border:1px solid rgba(255,255,255,0.1);font-size:0.65rem}
+    .sidebar-btn.export:hover{color:var(--teal);border-color:rgba(74,191,176,0.35)}
+    .sidebar-divider{height:1px;background:rgba(74,191,176,0.08);margin:2px 0}
+
+    /* MODAL */
+    .modal-overlay{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity 0.2s}
+    .modal-overlay.open{opacity:1;pointer-events:all}
+    .modal{background:#12161C;border:1px solid rgba(74,191,176,0.25);border-radius:8px;padding:26px;width:100%;max-width:340px;transform:translateY(10px);transition:transform 0.2s}
+    .modal-overlay.open .modal{transform:translateY(0)}
+    .modal-title{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:700;color:var(--text-bright);margin-bottom:4px}
+    .modal-sub{font-size:0.68rem;color:var(--text-dim);margin-bottom:18px}
+    .modal-label{display:block;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:7px}
+    .modal-input{width:100%;background:var(--bg);border:1px solid rgba(74,191,176,0.25);border-radius:4px;color:var(--text-bright);font-family:'Courier Prime',monospace;font-size:1rem;font-weight:700;padding:10px 14px;outline:none;transition:border-color 0.15s,box-shadow 0.15s}
+    .modal-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(74,191,176,0.1)}
+    .modal-btns{display:flex;gap:9px;margin-top:18px}
+    .modal-ok{flex:1;padding:12px;font-family:'Courier Prime',monospace;font-size:0.72rem;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;border-radius:4px;cursor:pointer;transition:all 0.15s}
+    .modal-ok:hover{background:var(--teal-light)}
+    .modal-ok.danger{background:var(--red)}
+    .modal-ok.danger:hover{background:#E87080;box-shadow:0 0 18px rgba(224,92,106,0.3)}
+    .modal-cancel{padding:12px 16px;font-family:'Courier Prime',monospace;font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;background:transparent;color:var(--text-dim);border:1px solid rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;transition:all 0.15s}
+    .modal-cancel:hover{color:var(--text)}
+
+    /* TOP BAR */
+    .top-bar{position:sticky;top:0;z-index:100;background:rgba(10,12,15,0.92);backdrop-filter:blur(8px);border-bottom:1px solid rgba(74,191,176,0.08);padding:11px 18px;display:flex;align-items:center;gap:12px}
+    .hamburger{background:none;border:none;color:var(--text-dim);cursor:pointer;display:flex;flex-direction:column;gap:4px;padding:4px;border-radius:4px;transition:color 0.15s;flex-shrink:0}
+    .hamburger:hover{color:var(--teal)}
+    .hamburger span{display:block;width:20px;height:2px;background:currentColor;border-radius:1px}
+    .top-bar-label{font-size:0.66rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);white-space:nowrap}
+    .top-bar-pass{font-size:0.62rem;letter-spacing:0.12em;color:var(--teal);background:rgba(74,191,176,0.08);border:1px solid rgba(74,191,176,0.18);border-radius:20px;padding:3px 12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .top-bar-countdown{margin-left:auto;font-family:'Courier Prime',monospace;font-size:0.8rem;font-weight:700;color:var(--amber-light);background:rgba(200,134,10,0.1);border:1px solid rgba(200,134,10,0.3);border-radius:20px;padding:3px 12px;letter-spacing:0.06em;display:none;align-items:center;gap:7px;animation:pulse-glow 2s ease-in-out infinite;white-space:nowrap}
+    .top-bar-countdown.active{display:flex}
+    .top-bar-countdown.paused{color:var(--text-dim);background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.1);animation:none}
+    @keyframes pulse-glow{0%,100%{box-shadow:0 0 0 rgba(200,134,10,0)}50%{box-shadow:0 0 12px rgba(200,134,10,0.15)}}
+
+    /* PAGES */
+    .page{display:none}
+    .page.active{display:block}
+    .container{max-width:760px;margin:0 auto;padding:30px 18px 80px;animation:rise 0.5s ease both}
+    @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+    header{margin-bottom:26px}
+    .eyebrow{font-size:0.65rem;letter-spacing:0.35em;text-transform:uppercase;color:var(--teal);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+    .eyebrow::before{content:'';display:inline-block;width:24px;height:1px;background:var(--teal)}
+    h1{font-family:'Playfair Display',serif;font-size:clamp(2rem,6vw,3rem);font-weight:900;color:var(--text-bright);line-height:1.05}
+    h1 em{font-style:italic;color:var(--teal-light)}
+    .tagline{font-size:0.72rem;color:var(--text-dim);margin-top:8px;letter-spacing:0.05em}
+
+    .card{background:linear-gradient(160deg,rgba(26,74,68,0.2),rgba(10,12,15,0.7));border:1px solid rgba(74,191,176,0.2);border-radius:6px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden}
+    .card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal-dim),transparent)}
+    .card-label{font-size:0.6rem;letter-spacing:0.25em;text-transform:uppercase;color:var(--text-dim);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .card-label .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 6px var(--teal)}
+
+    .fields{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:16px}
+    @media(max-width:420px){.fields{grid-template-columns:1fr}}
+    .field{display:flex;flex-direction:column;gap:5px}
+    .field label{font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim)}
+    .field .hint{font-size:0.57rem;color:var(--teal-dim);margin-top:-2px}
+
+    input[type="number"],input[type="text"]{background:var(--bg);border:1px solid rgba(74,191,176,0.25);border-radius:4px;color:var(--text-bright);font-family:'Courier Prime',monospace;font-size:1rem;font-weight:700;padding:10px 13px;width:100%;outline:none;transition:border-color 0.15s,box-shadow 0.15s;-moz-appearance:textfield}
+    input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none}
+    input[type="number"]:focus,input[type="text"]:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(74,191,176,0.1)}
+    select{background:var(--bg);border:1px solid rgba(74,191,176,0.25);border-radius:4px;color:var(--text-bright);font-family:'Courier Prime',monospace;font-size:0.85rem;padding:10px 13px;width:100%;outline:none;transition:border-color 0.15s}
+    select:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(74,191,176,0.1)}
+    select option{background:var(--bg)}
+
+    .input-stepper{display:flex;align-items:center;background:var(--bg);border:1px solid rgba(74,191,176,0.25);border-radius:4px;overflow:hidden;height:44px}
+    .input-stepper:focus-within{border-color:var(--teal);box-shadow:0 0 0 3px rgba(74,191,176,0.1)}
+    .input-stepper input[type="number"]{flex:1;border:none;border-radius:0;background:transparent;padding:10px 6px;text-align:center;width:0;min-width:0;box-shadow:none !important}
+    .isp-btn{background:rgba(74,191,176,0.08);border:none;color:var(--teal);font-size:1.3rem;width:42px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.12s;user-select:none}
+    .isp-btn:hover{background:rgba(74,191,176,0.18)}
+    .isp-btn:active{background:rgba(74,191,176,0.28)}
+
+    .vol-add-row{display:grid;grid-template-columns:1fr auto;gap:11px;align-items:end}
+    .vol-stepper{display:flex;align-items:center;background:var(--bg);border:1px solid rgba(74,191,176,0.25);border-radius:4px;overflow:hidden;height:44px}
+    .vol-btn{background:rgba(74,191,176,0.08);border:none;color:var(--teal);font-size:1.3rem;width:46px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.12s;user-select:none}
+    .vol-btn:hover{background:rgba(74,191,176,0.18)}
+    .vol-btn:active{background:rgba(74,191,176,0.28)}
+    .vol-btn:disabled{opacity:0.25;cursor:not-allowed}
+    .vol-display{flex:1;text-align:center;font-family:'Courier Prime',monospace;font-size:0.92rem;font-weight:700;color:var(--text-bright);pointer-events:none}
+
+    .btn-add{height:44px;padding:0 18px;font-family:'Courier Prime',monospace;font-size:0.75rem;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;border-radius:4px;cursor:pointer;transition:all 0.18s;white-space:nowrap}
+    .btn-add:hover{background:var(--teal-light);box-shadow:0 0 22px rgba(74,191,176,0.35)}
+    .btn-add:active{transform:scale(0.97)}
+
+    .btn-finish{width:100%;padding:15px;font-family:'Courier Prime',monospace;font-size:0.78rem;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;background:transparent;color:var(--amber-light);border:1px solid rgba(200,134,10,0.5);border-radius:4px;cursor:pointer;transition:all 0.2s;margin-top:8px}
+    .btn-finish:hover{border-color:var(--amber-light);box-shadow:0 0 22px rgba(200,134,10,0.18)}
+    .btn-finish:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none}
+
+    .btn-calc{width:100%;margin-top:8px;padding:14px;font-family:'Courier Prime',monospace;font-size:0.75rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;background:var(--teal);color:var(--bg);border:none;border-radius:4px;cursor:pointer;transition:all 0.18s}
+    .btn-calc:hover{background:var(--teal-light);box-shadow:0 0 22px rgba(74,191,176,0.35)}
+    .btn-reset{width:100%;margin-top:8px;padding:10px;font-family:'Courier Prime',monospace;font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;background:transparent;color:var(--text-dim);border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;transition:all 0.15s}
+    .btn-reset:hover{border-color:var(--text-dim);color:var(--text)}
+
+    .error{background:rgba(224,92,106,0.1);border:1px solid rgba(224,92,106,0.3);color:var(--red);padding:9px 14px;border-radius:4px;font-size:0.74rem;margin-top:11px;display:none}
+    .error.show{display:block}
+
+    .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    .section-title{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--text-bright)}
+    .bucket-count{font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--teal);background:rgba(74,191,176,0.08);border:1px solid rgba(74,191,176,0.2);border-radius:20px;padding:3px 11px}
+
+    .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+    .table-scroll::-webkit-scrollbar{height:4px}
+    .table-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+    .bucket-table{width:100%;min-width:510px;border-collapse:collapse;font-size:0.82rem}
+    .bucket-table thead tr{border-bottom:1px solid rgba(74,191,176,0.2)}
+    .bucket-table th{font-size:0.57rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--text-dim);padding:0 9px 9px;text-align:left;font-weight:400;white-space:nowrap}
+    .bucket-table th:first-child{padding-left:0}
+    .bucket-table th.right{text-align:right}
+    .bucket-table tbody tr{border-bottom:1px solid rgba(255,255,255,0.03)}
+    .bucket-table td{padding:8px 9px;color:var(--text);white-space:nowrap}
+    .bucket-table td:first-child{padding-left:0}
+    .bucket-num{font-size:0.62rem;letter-spacing:0.1em;color:var(--text-dim);font-weight:700}
+    .proof-val{font-family:'Playfair Display',serif;font-size:0.98rem;font-weight:700;color:var(--teal-light)}
+    .vol-val{color:var(--text-bright);font-weight:700}
+    .pf-gal-val{color:var(--text-dim);font-size:0.78rem}
+    .right{text-align:right}
+    .remove-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.72rem;padding:3px 7px;border-radius:3px;transition:all 0.12s;font-family:'Courier Prime',monospace}
+    .remove-btn:hover{color:var(--red);background:rgba(224,92,106,0.1)}
+    .totals-row td{border-top:1px solid rgba(74,191,176,0.28) !important;border-bottom:none !important;padding-top:11px !important}
+    .tot-label{font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim)}
+    .tot-val{font-family:'Playfair Display',serif;font-size:0.96rem;color:var(--teal-light);font-weight:700}
+    .empty-state{text-align:center;padding:34px 16px;color:var(--text-dim);font-size:0.74rem;letter-spacing:0.08em;border:1px dashed rgba(74,191,176,0.1);border-radius:4px}
+    .empty-icon{font-size:1.8rem;margin-bottom:8px;opacity:0.4}
+    .result-card{background:linear-gradient(135deg,rgba(200,134,10,0.12),rgba(26,36,20,0.3));border:1px solid rgba(200,134,10,0.5);border-radius:6px;padding:26px;margin-bottom:14px;display:none;animation:rise 0.4s ease both;position:relative;overflow:hidden}
+    .result-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent)}
+    .result-card.visible{display:block}
+    .result-label{font-size:0.6rem;letter-spacing:0.35em;text-transform:uppercase;color:var(--amber);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+    .result-label::before{content:'';width:18px;height:1px;background:var(--amber)}
+    .result-main{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+    .result-number{font-family:'Playfair Display',serif;font-size:clamp(2.6rem,9vw,4rem);font-weight:900;color:var(--amber-light);line-height:1;text-shadow:0 0 36px rgba(232,160,32,0.3)}
+    .result-sep{font-family:'Playfair Display',serif;font-size:1.7rem;color:var(--text-dim);line-height:1}
+    .result-proof{font-family:'Playfair Display',serif;font-size:clamp(2.6rem,9vw,4rem);font-weight:900;color:var(--highlight);line-height:1;text-shadow:0 0 36px rgba(123,224,213,0.3)}
+    .result-units{display:flex;gap:14px;font-size:0.64rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim);margin-bottom:16px}
+    .result-units span{color:var(--amber-light)}
+    .result-meta{display:flex;gap:18px;flex-wrap:wrap;font-size:0.67rem;color:var(--text-dim);border-top:1px solid rgba(200,134,10,0.15);padding-top:12px}
+    .result-meta strong{color:var(--text)}
+
+    /* Flow rate */
+    .stopwatch-card{background:linear-gradient(160deg,rgba(200,134,10,0.1),rgba(10,12,15,0.7));border:1px solid rgba(200,134,10,0.25);border-radius:6px;padding:22px;margin-bottom:14px;position:relative;overflow:hidden;text-align:center}
+    .stopwatch-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(200,134,10,0.4),transparent)}
+    .sw-time{font-family:'Courier Prime',monospace;font-size:clamp(2.4rem,10vw,3.5rem);font-weight:700;color:var(--text-bright);letter-spacing:0.05em;margin:14px 0}
+    .sw-time.running{color:var(--amber-light)}
+    .sw-btns{display:flex;gap:10px;justify-content:center;margin-top:14px}
+    .sw-btn{padding:12px 28px;font-family:'Courier Prime',monospace;font-size:0.75rem;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;border-radius:4px;cursor:pointer;transition:all 0.18s}
+    .sw-btn-start{background:var(--amber);color:var(--bg);border:none}
+    .sw-btn-start:hover{background:var(--amber-light);box-shadow:0 0 22px rgba(200,134,10,0.35)}
+    .sw-btn-stop{background:var(--red);color:var(--bg);border:none}
+    .sw-btn-stop:hover{box-shadow:0 0 22px rgba(224,92,106,0.35)}
+    .sw-btn-reset{background:transparent;color:var(--text-dim);border:1px solid rgba(255,255,255,0.1)}
+    .sw-btn-reset:hover{color:var(--text)}
+    .flow-status-card{background:linear-gradient(135deg,rgba(74,191,176,0.08),rgba(10,12,15,0.7));border:1px solid rgba(74,191,176,0.25);border-radius:6px;padding:20px 22px;margin-bottom:14px;position:relative;overflow:hidden;display:none}
+    .flow-status-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--teal-dim),transparent)}
+    .flow-status-card.active{display:block}
+    .flow-status-row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0}
+    .flow-status-row+.flow-status-row{border-top:1px solid rgba(74,191,176,0.08)}
+    .fs-label{font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim)}
+    .fs-value{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--teal-light)}
+    .fs-value.amber{color:var(--amber-light)}
+    .flow-correction{margin-top:10px;padding-top:12px;border-top:1px solid rgba(74,191,176,0.12);display:flex;align-items:center;gap:10px}
+    .flow-correction label{font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dim);white-space:nowrap}
+    .flow-correction input{width:90px;font-size:0.88rem;padding:7px 10px;text-align:center}
+    .btn-clear-flow{width:100%;padding:13px;font-family:'Courier Prime',monospace;font-size:0.72rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;background:transparent;color:var(--text-dim);border:1px solid rgba(255,255,255,0.08);border-radius:4px;cursor:pointer;transition:all 0.15s;margin-top:8px}
+    .btn-clear-flow:hover{color:var(--red);border-color:rgba(224,92,106,0.3)}
+
+    /* Pass Manager page */
+    .save-item{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:14px 16px;margin-bottom:10px;transition:border-color 0.15s}
+    .save-item:hover{border-color:rgba(74,191,176,0.22)}
+    .save-item-row1{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+    .save-item-name{font-size:0.85rem;font-weight:700;color:var(--text-bright)}
+    .save-item-date{font-size:0.6rem;color:var(--text-dim)}
+    .save-item-result{font-family:'Playfair Display',serif;font-size:0.92rem;color:var(--amber-light);margin-bottom:10px}
+    .save-item-result.wip{font-family:'Courier Prime',monospace;font-size:0.75rem;color:var(--teal)}
+    .save-item-btns{display:flex;gap:6px}
+    .si-btn{flex:1;padding:7px 10px;font-family:'Courier Prime',monospace;font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;border-radius:3px;cursor:pointer;transition:all 0.14s}
+    .si-edit{background:rgba(74,191,176,0.1);color:var(--teal);border:1px solid rgba(74,191,176,0.22)}
+    .si-edit:hover{background:rgba(74,191,176,0.2)}
+    .si-del{background:transparent;color:var(--text-dim);border:1px solid rgba(255,255,255,0.07)}
+    .si-del:hover{color:var(--red);border-color:rgba(224,92,106,0.3)}
+    .saves-empty{text-align:center;padding:34px 16px;color:var(--text-dim);font-size:0.74rem;letter-spacing:0.08em;border:1px dashed rgba(74,191,176,0.1);border-radius:4px}
+
+    /* True proof specific */
+    .method-tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid rgba(74,191,176,0.15)}
+    .tp-tab{padding:10px 18px;font-family:'Courier Prime',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;color:var(--text-dim);border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.2s}
+    .tp-tab.active{color:var(--teal-light);border-bottom-color:var(--teal)}
+    .tp-panel{display:none}
+    .tp-panel.active{display:block}
+    .info-box{background:rgba(74,191,176,0.04);border:1px solid rgba(74,191,176,0.12);padding:12px 16px;font-size:0.72rem;color:var(--text-dim);line-height:1.6;margin-bottom:18px;border-radius:4px}
+    .info-box strong{color:var(--teal-light)}
+
+    /* Dilution specific */
+    .input-row{display:flex;gap:0}
+    .with-unit{border-radius:4px 0 0 4px !important}
+    .unit-select{background:var(--surface2);border:1px solid rgba(74,191,176,0.25);border-left:none;border-radius:0 4px 4px 0;color:var(--text-dim);font-family:'Courier Prime',monospace;font-size:0.72rem;padding:10px 10px;outline:none;cursor:pointer;min-width:56px}
+    .unit-select:focus{border-color:var(--teal)}
+    .preset-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .preset{font-family:'Courier Prime',monospace;font-size:0.62rem;letter-spacing:0.1em;padding:5px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer;transition:all 0.15s}
+    .preset:hover,.preset.active{border-color:var(--amber);color:var(--amber-light);background:rgba(200,134,10,0.08)}
+    .dil-results{display:none;animation:rise 0.3s ease both}
+    .dil-results.show{display:block}
+    .dil-hero{background:linear-gradient(135deg,rgba(74,191,176,0.08),rgba(200,134,10,0.06));border:1px solid rgba(74,191,176,0.25);border-radius:6px;padding:28px;margin-bottom:14px;text-align:center;position:relative;overflow:hidden}
+    .dil-hero .dil-label{font-size:0.6rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--teal);margin-bottom:6px}
+    .dil-hero .water-amount{font-family:'Playfair Display',serif;font-size:clamp(3rem,10vw,5rem);color:var(--highlight);line-height:1;text-shadow:0 0 40px rgba(123,224,213,0.3)}
+    .dil-hero .water-unit{font-size:1rem;color:var(--teal);letter-spacing:0.15em;margin-top:4px}
+    .dil-hero .water-secondary{font-size:0.78rem;color:var(--text-dim);margin-top:8px}
+    .dil-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+    @media(max-width:480px){.dil-stats{grid-template-columns:1fr 1fr}}
+    .dil-stat{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:14px}
+    .dil-stat .s-label{font-size:0.56rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim);margin-bottom:5px}
+    .dil-stat .s-value{font-size:0.95rem;font-weight:700;color:var(--text-bright)}
+    .dil-stat .s-sub{font-size:0.6rem;color:var(--text-dim);margin-top:2px}
+
+    /* TP result */
+    .tp-result{background:linear-gradient(135deg,rgba(200,134,10,0.12),rgba(26,36,20,0.3));border:1px solid rgba(200,134,10,0.5);border-radius:6px;padding:26px;margin-bottom:14px;display:none;position:relative;overflow:hidden}
+    .tp-result::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent)}
+    .tp-result.visible{display:block;animation:rise 0.4s ease both}
+    .tp-result-main{display:flex;align-items:baseline;gap:8px;margin:8px 0 18px}
+    .tp-result-num{font-family:'Playfair Display',serif;font-size:clamp(3rem,10vw,5rem);font-weight:900;color:var(--amber-light);line-height:1;text-shadow:0 0 40px rgba(232,160,32,0.3)}
+    .tp-result-unit{font-size:1.1rem;color:var(--amber);letter-spacing:0.15em;text-transform:uppercase}
+    .tp-result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+    .tp-result-item{background:rgba(10,12,15,0.5);border-left:2px solid var(--amber);padding:10px 14px;border-radius:0 4px 4px 0}
+    .tp-result-item .ri-label{font-size:0.56rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px}
+    .tp-result-item .ri-value{font-size:0.95rem;color:var(--text-bright);font-weight:700}
+
+    .sep{height:1px;background:linear-gradient(90deg,transparent,rgba(74,191,176,0.12),transparent);margin:8px 0}
+
+    footer{text-align:center;font-size:0.57rem;color:var(--text-dim);letter-spacing:0.15em;text-transform:uppercase;margin-top:36px}
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <div class="sidebar-title">Distillery <em>Tools</em></div>
+    <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+  </div>
+  <div class="sidebar-nav">
+    <div class="sidebar-nav-hdr">Tools</div>
+    <button class="nav-btn active" id="nav-pass-tracker" onclick="switchPage('pass-tracker')"><span class="nav-icon">🪣</span> Pass Tracker</button>
+    <button class="nav-btn" id="nav-flow-rate" onclick="switchPage('flow-rate')"><span class="nav-icon">⏱</span> Flow Rate</button>
+    <button class="nav-btn" id="nav-true-proof" onclick="switchPage('true-proof')"><span class="nav-icon">🌡</span> True Proof</button>
+    <button class="nav-btn" id="nav-dilution" onclick="switchPage('dilution')"><span class="nav-icon">💧</span> Dilution</button>
+    <button class="nav-btn" id="nav-pass-manager" onclick="switchPage('pass-manager')"><span class="nav-icon">📋</span> Pass Manager</button>
+  </div>
+  <div class="sidebar-actions" id="sidebar-actions-pass">
+    <div class="sidebar-actions-hdr">Pass Actions</div>
+    <button class="sidebar-btn primary" onclick="savePass()">💾 &nbsp;Save Current Pass</button>
+    <button class="sidebar-btn secondary" onclick="newPass()">＋ &nbsp;New Pass</button>
+    <div class="sidebar-divider"></div>
+    <button class="sidebar-btn export" onclick="exportData()">↑ &nbsp;Export All Data</button>
+    <label class="sidebar-btn export" style="cursor:pointer;position:relative;overflow:hidden">
+      ↓ &nbsp;Import Data
+      <input type="file" id="import-file" accept=".json" onchange="importData(event)" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px">
+    </label>
+  </div>
+</div>
+
+<!-- SAVE MODAL -->
+<div class="modal-overlay" id="save-modal">
+  <div class="modal">
+    <div class="modal-title">Save Pass</div>
+    <div class="modal-sub">Enter a number or label to identify this pass.</div>
+    <label class="modal-label">Pass Number / Label</label>
+    <input class="modal-input" type="text" id="modal-label" placeholder="e.g. 42  or  Rye Run 3" onkeypress="if(event.key==='Enter')confirmSave()">
+    <div class="modal-btns">
+      <button class="modal-ok" onclick="confirmSave()">Save Pass</button>
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-title">Delete Pass?</div>
+    <div class="modal-sub" id="delete-modal-sub">Are you sure you want to delete this pass? This cannot be undone.</div>
+    <div class="modal-btns">
+      <button class="modal-ok danger" id="delete-confirm-btn" onclick="confirmDelete()">Yes, Delete</button>
+      <button class="modal-cancel" onclick="closeDeleteModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="top-bar">
+  <button class="hamburger" onclick="openSidebar()" aria-label="Open menu"><span></span><span></span><span></span></button>
+  <span class="top-bar-label" id="top-bar-tool">Pass Tracker</span>
+  <span class="top-bar-pass" id="top-bar-pass">New Pass</span>
+  <div class="top-bar-countdown" id="top-bar-countdown"><span id="countdown-finish-time" style="font-size:0.62rem;color:var(--amber);opacity:0.8"></span><span id="countdown-display">--:--:--</span></div>
+</div>
+
+<!-- ═══════════════════════ PASS TRACKER PAGE ═══════════════════════ -->
+<div class="page active" id="page-pass-tracker">
+<div class="container">
+  <header>
+    <div class="eyebrow">Yield &amp; Proof</div>
+    <h1>Pass<br><em>Tracker</em></h1>
+    <p class="tagline">Record each bucket · Calculate average proof &amp; total yield</p>
+  </header>
+  <div class="card">
+    <div class="card-label"><span class="dot"></span>Bucket Entry</div>
+    <div class="fields">
+      <div class="field"><label>Apparent Proof</label><div class="hint">151–203, decimals ok · ±0.1</div><div class="input-stepper"><button class="isp-btn" onclick="stepAP(-1)">−</button><input type="number" id="inp-ap" min="151" max="203.9" step="0.1" placeholder="185.0" oninput="syncAPFromInput()"><button class="isp-btn" onclick="stepAP(1)">＋</button></div></div>
+      <div class="field"><label>Temperature (°F)</label><div class="hint">51–80 · persists between buckets</div><div class="input-stepper"><button class="isp-btn" onclick="stepTemp(-1)">−</button><input type="number" id="inp-temp" min="51" max="80" step="1" placeholder="60" oninput="syncTempFromInput()"><button class="isp-btn" onclick="stepTemp(1)">＋</button></div></div>
+    </div>
+    <div class="vol-add-row">
+      <div class="field" style="margin:0"><label>Volume (gallons)</label><div class="hint">0.5 – 5.0 gal</div><div class="vol-stepper"><button class="vol-btn" id="vol-minus" onclick="stepVol(-1)">−</button><span class="vol-display" id="vol-display">0.5 gal</span><button class="vol-btn" id="vol-plus" onclick="stepVol(1)">＋</button></div></div>
+      <button class="btn-add" onclick="addBucket()">＋ Add</button>
+    </div>
+    <div class="error" id="error"></div>
+  </div>
+  <div class="card">
+    <div class="section-header"><div class="section-title">Bucket List</div><div class="bucket-count" id="bucket-count">0 buckets</div></div>
+    <div id="bucket-empty" class="empty-state"><div class="empty-icon">🪣</div>No buckets yet.</div>
+    <div class="table-scroll" id="table-scroll" style="display:none"><table class="bucket-table"><thead><tr><th>#</th><th>App. Proof</th><th>Temp</th><th>True Proof</th><th>Volume</th><th class="right">Proof Gals</th><th></th></tr></thead><tbody id="bucket-tbody"></tbody><tfoot id="bucket-tfoot"></tfoot></table></div>
+  </div>
+  <button class="btn-finish" id="btn-finish" onclick="finishPass()" disabled>⚑ &nbsp;Finish Pass</button>
+  <div class="result-card" id="result-card">
+    <div class="result-label">Pass Complete</div>
+    <div class="result-main"><div class="result-number" id="res-gallons">—</div><div class="result-sep">gal @</div><div class="result-proof" id="res-proof">—</div></div>
+    <div class="result-units"><span>gallons</span><span>·</span><span>° proof</span></div>
+    <div class="result-meta"><div>Buckets: <strong id="res-buckets">—</strong></div><div>Proof·Gal: <strong id="res-pfgal">—</strong></div><div>ABV: <strong id="res-abv">—</strong></div></div>
+  </div>
+  <footer><p>27 CFR Part 30 · TTB Gauging Manual · Ref. 60°F</p></footer>
+</div>
+</div>
+
+<!-- ═══════════════════════ FLOW RATE PAGE ═══════════════════════ -->
+<div class="page" id="page-flow-rate">
+<div class="container">
+  <header><div class="eyebrow">Flow &amp; Timing</div><h1>Flow<br><em>Rate</em></h1><p class="tagline">Time a gallon · Calculate finish time &amp; countdown</p></header>
+  <div class="stopwatch-card">
+    <div class="card-label" style="justify-content:center"><span class="dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber)"></span>Gallon Stopwatch</div>
+    <div class="sw-time" id="sw-time">0:00.0</div>
+    <div style="font-size:0.6rem;color:var(--text-dim);letter-spacing:0.1em;margin-top:-6px;margin-bottom:8px">Time one gallon to set your flow rate</div>
+    <div class="sw-btns"><button class="sw-btn sw-btn-start" id="sw-start" onclick="swStart()">▶ Start</button><button class="sw-btn sw-btn-reset" id="sw-reset" onclick="swReset()" style="display:none">Reset</button></div>
+  </div>
+  <div class="card">
+    <div class="card-label"><span class="dot"></span>Pass Setup</div>
+    <div class="fields">
+      <div class="field"><label>Target Volume (gal)</label><div class="hint">Total gallons for this pass</div><input type="number" id="flow-target" min="0.5" step="0.5" placeholder="10" oninput="flowRecalcFromRate()"></div>
+      <div class="field"><label>Flow Rate (min/gal)</label><div class="hint">Minutes per gallon</div><div class="input-stepper"><button class="isp-btn" onclick="stepFlowRate(-0.5)">−</button><input type="number" id="flow-rate" min="0.1" step="0.1" placeholder="5.0" oninput="flowRecalcFromRate()"><button class="isp-btn" onclick="stepFlowRate(0.5)">＋</button></div></div>
+    </div>
+    <div class="fields">
+      <div class="field"><label>Finish By (time)</label><div class="hint">Or set a deadline to calc rate</div><input type="time" id="flow-finish-time" style="background:var(--bg);border:1px solid rgba(74,191,176,0.25);border-radius:4px;color:var(--text-bright);font-family:'Courier Prime',monospace;font-size:1rem;font-weight:700;padding:10px 13px;width:100%;outline:none;color-scheme:dark;" oninput="flowRecalcFromTime()"></div>
+      <div class="field" style="display:flex;justify-content:flex-end"><button class="btn-add" onclick="flowStart()" id="flow-go-btn" style="align-self:flex-end;width:100%">▶ &nbsp;Start Countdown</button></div>
+    </div>
+    <div class="error" id="flow-error"></div>
+  </div>
+  <div class="flow-status-card" id="flow-status">
+    <div class="card-label"><span class="dot" style="background:var(--amber);box-shadow:0 0 6px var(--amber)"></span>Live Status</div>
+    <div class="flow-status-row"><span class="fs-label">Collected</span><span class="fs-value" id="fs-collected">0.0 gal</span></div>
+    <div class="flow-status-row"><span class="fs-label">Remaining</span><span class="fs-value amber" id="fs-remaining">— gal</span></div>
+    <div class="flow-status-row"><span class="fs-label">Rate</span><span class="fs-value" id="fs-rate">— min/gal</span></div>
+    <div class="flow-status-row"><span class="fs-label">Est. Finish</span><span class="fs-value amber" id="fs-finish">—</span></div>
+    <div class="flow-correction"><label>Correct Vol.</label><input type="number" id="flow-correction-input" min="0" step="0.1" placeholder="gal"><button class="sw-btn sw-btn-start" style="padding:8px 14px;font-size:0.6rem" onclick="applyCorrection()">Set</button></div>
+  </div>
+  <button class="btn-clear-flow" id="flow-clear-btn" onclick="flowClear()" style="display:none">✕ &nbsp;Clear &amp; Reset</button>
+  <footer><p>Distillery Tools · Flow Rate Calculator</p></footer>
+</div>
+</div>
+
+<!-- ═══════════════════════ TRUE PROOF PAGE ═══════════════════════ -->
+<div class="page" id="page-true-proof">
+<div class="container">
+  <header><div class="eyebrow">Temperature Correction</div><h1>True<br><em>Proof</em></h1><p class="tagline">TTB Table 1 correction · Corrected to 60°F reference</p></header>
+  <div class="card">
+    <div class="card-label"><span class="dot"></span>Input Method</div>
+    <div class="method-tabs">
+      <button class="tp-tab active" onclick="tpSwitchTab('standard')">Standard</button>
+      <button class="tp-tab" onclick="tpSwitchTab('precise')">SG (Precise)</button>
+      <button class="tp-tab" onclick="tpSwitchTab('abv')">ABV → Proof</button>
+    </div>
+    <div class="tp-panel active" id="tp-tab-standard">
+      <div class="info-box">Enter your <strong>hydrometer reading</strong> (apparent proof) and <strong>spirit temperature</strong>. Uses TTB Table 1 with bilinear interpolation.</div>
+      <div class="fields">
+        <div class="field"><label>Apparent Proof</label><div class="hint">Hydrometer reading at actual temp</div><input type="number" id="ap_proof" placeholder="e.g. 127.4" step="0.1" min="0" max="200"></div>
+        <div class="field"><label>Temperature</label><div class="hint">Spirit temp at time of reading</div><input type="number" id="ap_temp" placeholder="e.g. 72.5" step="0.1"></div>
+      </div>
+      <div class="fields">
+        <div class="field"><label>Temp Unit</label><select id="ap_unit"><option value="F">°F — Fahrenheit</option><option value="C">°C — Celsius</option></select></div>
+        <div class="field"><label>Spirit Type</label><select id="ap_type"><option value="whiskey">Whiskey / Bourbon / Rye</option><option value="vodka">Vodka / Neutral Spirits</option><option value="brandy">Brandy / Wine Spirits</option><option value="rum">Rum</option><option value="gin">Gin</option></select></div>
+      </div>
+      <button class="btn-calc" onclick="calcStandard()">Calculate True Proof</button>
+      <button class="btn-reset" onclick="tpReset()">Clear</button>
+    </div>
+    <div class="tp-panel" id="tp-tab-precise">
+      <div class="info-box">For lab-grade accuracy. Enter <strong>specific gravity</strong> at observed temperature. Uses the OIML ethanol-water density model corrected to 60°F.</div>
+      <div class="fields">
+        <div class="field"><label>Specific Gravity</label><div class="hint">0.7893 – 1.000</div><input type="number" id="sg_val" placeholder="e.g. 0.9412" step="0.0001" min="0.7" max="1.0"></div>
+        <div class="field"><label>Temperature</label><div class="hint">Temp at SG reading</div><input type="number" id="sg_temp" placeholder="e.g. 68.0" step="0.1"></div>
+      </div>
+      <div class="fields"><div class="field"><label>Temp Unit</label><select id="sg_unit"><option value="F">°F</option><option value="C">°C</option></select></div><div class="field"></div></div>
+      <button class="btn-calc" onclick="calcSG()">Calculate True Proof</button>
+      <button class="btn-reset" onclick="tpReset()">Clear</button>
+    </div>
+    <div class="tp-panel" id="tp-tab-abv">
+      <div class="info-box">Convert <strong>ABV%</strong> to US Proof. US Proof = ABV × 2. Also corrects to 60°F if a temperature is provided.</div>
+      <div class="fields">
+        <div class="field"><label>ABV %</label><div class="hint">Alcohol by volume</div><input type="number" id="abv_val" placeholder="e.g. 62.5" step="0.01" min="0" max="100"></div>
+        <div class="field"><label>Temperature</label><div class="hint">Leave blank if already at 60°F</div><input type="number" id="abv_temp" placeholder="e.g. 60" step="0.1"></div>
+      </div>
+      <div class="fields"><div class="field"><label>Temp Unit</label><select id="abv_unit"><option value="F">°F</option><option value="C">°C</option></select></div><div class="field"></div></div>
+      <button class="btn-calc" onclick="calcABV()">Calculate True Proof</button>
+      <button class="btn-reset" onclick="tpReset()">Clear</button>
+    </div>
+    <div class="error" id="tp-error"></div>
+  </div>
+  <div class="tp-result" id="tp-result">
+    <div class="result-label">True Proof Result</div>
+    <div class="tp-result-main"><div class="tp-result-num" id="tp-res-proof">—</div><div class="tp-result-unit">° Proof</div></div>
+    <div class="tp-result-grid">
+      <div class="tp-result-item"><div class="ri-label">ABV at 60°F</div><div class="ri-value" id="tp-res-abv">—</div></div>
+      <div class="tp-result-item"><div class="ri-label">Temp Correction</div><div class="ri-value" id="tp-res-correction">—</div></div>
+      <div class="tp-result-item"><div class="ri-label">Method</div><div class="ri-value" id="tp-res-method">—</div></div>
+    </div>
+  </div>
+  <footer><p>TTB Gauging Manual · 27 CFR Part 30 · Ref. 60°F</p></footer>
+</div>
+</div>
+
+<!-- ═══════════════════════ DILUTION PAGE ═══════════════════════ -->
+<div class="page" id="page-dilution">
+<div class="container">
+  <header><div class="eyebrow">Proofing &amp; Water</div><h1>Dilution<br><em>Calculator</em></h1><p class="tagline">Calculate exact water additions to reach target proof</p></header>
+  <div class="card">
+    <div class="card-label"><span class="dot"></span>Batch Parameters</div>
+    <div class="fields" style="margin-bottom:16px">
+      <div class="field"><label>Spirit Volume</label><div class="hint">Volume before dilution</div><div class="input-row"><input type="number" id="dil-vol" class="with-unit" placeholder="e.g. 53" step="0.01" min="0"><select class="unit-select" id="dil-vol-unit" onchange="dilSyncUnits()"><option value="gal">gal</option><option value="L">L</option><option value="mL">mL</option><option value="qt">qt</option></select></div></div>
+      <div class="field"><label>Current True Proof</label><div class="hint">At 60°F</div><input type="number" id="dil-cur-proof" placeholder="e.g. 140.0" step="0.01" min="0.01" max="200"></div>
+    </div>
+    <div class="sep"></div>
+    <div class="fields" style="margin-top:16px">
+      <div class="field"><label>Target Proof</label><div class="hint">Desired final proof</div><input type="number" id="dil-tgt-proof" placeholder="e.g. 80" step="0.01" min="0.01" max="200" value="80"><div class="preset-btns"><button class="preset active" onclick="dilSetTarget(80,this)">80°</button><button class="preset" onclick="dilSetTarget(90,this)">90°</button><button class="preset" onclick="dilSetTarget(100,this)">100°</button><button class="preset" onclick="dilSetTarget(114,this)">114°</button></div></div>
+      <div class="field"><label>Water Unit</label><div class="hint">Result display unit</div><select id="dil-water-unit"><option value="gal">Gallons</option><option value="L">Liters</option><option value="mL">Milliliters</option><option value="qt">Quarts</option><option value="oz">Fluid Ounces</option></select></div>
+    </div>
+    <button class="btn-calc" onclick="dilCalculate()">▶ Calculate Water Addition</button>
+    <button class="btn-reset" onclick="dilReset()">Reset</button>
+    <div class="error" id="dil-error"></div>
+  </div>
+  <div class="dil-results" id="dil-results">
+    <div class="dil-hero"><div class="dil-label">Add This Much Water</div><div class="water-amount" id="dil-res-water">—</div><div class="water-unit" id="dil-res-water-unit">gallons</div><div class="water-secondary" id="dil-res-water-alt"></div></div>
+    <div class="dil-stats">
+      <div class="dil-stat"><div class="s-label">Final Volume</div><div class="s-value" id="dil-res-final-vol">—</div><div class="s-sub" id="dil-res-final-vol-sub"></div></div>
+      <div class="dil-stat"><div class="s-label">Verified Proof</div><div class="s-value" id="dil-res-final-proof">—</div></div>
+      <div class="dil-stat"><div class="s-label">Proof Gallons</div><div class="s-value" id="dil-res-pg">—</div></div>
+      <div class="dil-stat"><div class="s-label">Pure Alcohol</div><div class="s-value" id="dil-res-alcohol">—</div></div>
+      <div class="dil-stat"><div class="s-label">Dilution Ratio</div><div class="s-value" id="dil-res-ratio">—</div><div class="s-sub">spirit : water</div></div>
+      <div class="dil-stat"><div class="s-label">Volume Gain</div><div class="s-value" id="dil-res-gain">—</div></div>
+    </div>
+  </div>
+  <footer><p>Pearce Formula · Contraction-Corrected · Ref. 60°F</p></footer>
+</div>
+</div>
+
+<!-- ═══════════════════════ PASS MANAGER PAGE ═══════════════════════ -->
+<div class="page" id="page-pass-manager">
+<div class="container">
+  <header><div class="eyebrow">Saved Data</div><h1>Pass<br><em>Manager</em></h1><p class="tagline">View, load, and manage your saved passes</p></header>
+  <div id="pm-list"></div>
+  <footer><p>Distillery Tools · Pass Manager</p></footer>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// TTB TABLE (Pass Tracker)
+// ═══════════════════════════════════════════════════════════════════════════════
+const TABLE={151:{51:154.1,52:153.7,53:153.4,54:153.1,55:152.7,56:152.4,57:152.0,58:151.7,59:151.3,60:151.0,61:150.7,62:150.3,63:150.0,64:149.6,65:149.3,66:148.9,67:148.6,68:148.2,69:147.9,70:147.5,71:147.2,72:146.8,73:146.5,74:146.1,75:145.7,76:145.4,77:145.0,78:144.7,79:144.3,80:143.9},152:{51:155.1,52:154.7,53:154.4,54:154.1,55:153.7,56:153.4,57:153.0,58:152.7,59:152.3,60:152.0,61:151.7,62:151.3,63:151.0,64:150.6,65:150.3,66:149.9,67:149.6,68:149.2,69:148.9,70:148.5,71:148.2,72:147.8,73:147.5,74:147.1,75:146.8,76:146.4,77:146.1,78:145.7,79:145.3,80:145.0},153:{51:156.0,52:155.7,53:155.4,54:155.0,55:154.7,56:154.4,57:154.0,58:153.7,59:153.3,60:153.0,61:152.7,62:152.3,63:152.0,64:151.6,65:151.3,66:150.9,67:150.6,68:150.2,69:149.9,70:149.5,71:149.2,72:148.8,73:148.5,74:148.1,75:147.8,76:147.4,77:147.1,78:146.7,79:146.4,80:146.0},154:{51:157.0,52:156.7,53:156.4,54:156.0,55:155.7,56:155.4,57:155.0,58:154.7,59:154.3,60:154.0,61:153.7,62:153.3,63:153.0,64:152.6,65:152.3,66:151.9,67:151.6,68:151.3,69:150.9,70:150.6,71:150.2,72:149.9,73:149.5,74:149.2,75:148.8,76:148.5,77:148.1,78:147.8,79:147.4,80:147.0},155:{51:158.0,52:157.7,53:157.3,54:157.0,55:156.7,56:156.4,57:156.0,58:155.7,59:155.3,60:155.0,61:154.7,62:154.3,63:154.0,64:153.6,65:153.3,66:152.9,67:152.6,68:152.3,69:151.9,70:151.6,71:151.2,72:150.9,73:150.5,74:150.2,75:149.8,76:149.5,77:149.1,78:148.8,79:148.4,80:148.1},156:{51:159.0,52:158.6,53:158.3,54:158.0,55:157.7,56:157.3,57:157.0,58:156.7,59:156.3,60:156.0,61:155.7,62:155.3,63:155.0,64:154.6,65:154.3,66:154.0,67:153.6,68:153.3,69:152.9,70:152.6,71:152.2,72:151.9,73:151.5,74:151.2,75:150.9,76:150.5,77:150.2,78:149.8,79:149.5,80:149.1},157:{51:160.0,52:159.6,53:159.3,54:159.0,55:158.7,56:158.3,57:158.0,58:157.7,59:157.3,60:157.0,61:156.7,62:156.3,63:156.0,64:155.6,65:155.3,66:155.0,67:154.6,68:154.3,69:154.0,70:153.6,71:153.3,72:152.9,73:152.6,74:152.2,75:151.9,76:151.5,77:151.2,78:150.8,79:150.5,80:150.1},158:{51:161.0,52:160.6,53:160.3,54:160.0,55:159.7,56:159.3,57:159.0,58:158.6,59:158.3,60:158.0,61:157.7,62:157.3,63:157.0,64:156.6,65:156.3,66:156.0,67:155.6,68:155.3,69:155.0,70:154.6,71:154.3,72:153.9,73:153.6,74:153.2,75:152.9,76:152.6,77:152.2,78:151.9,79:151.5,80:151.2},159:{51:162.0,52:161.6,53:161.3,54:161.0,55:160.6,56:160.3,57:160.0,58:159.6,59:159.3,60:159.0,61:158.7,62:158.3,63:158.0,64:157.6,65:157.3,66:157.0,67:156.7,68:156.3,69:156.0,70:155.6,71:155.3,72:154.9,73:154.6,74:154.3,75:153.9,76:153.6,77:153.2,78:152.9,79:152.5,80:152.2},160:{51:162.9,52:162.6,53:162.3,54:162.0,55:161.6,56:161.3,57:161.0,58:160.6,59:160.3,60:160.0,61:159.7,62:159.3,63:159.0,64:158.6,65:158.3,66:158.0,67:157.7,68:157.3,69:157.0,70:156.6,71:156.3,72:156.0,73:155.6,74:155.3,75:154.9,76:154.6,77:154.3,78:153.9,79:153.6,80:153.2},161:{51:163.9,52:163.6,53:163.3,54:163.0,55:162.6,56:162.3,57:162.0,58:161.6,59:161.3,60:161.0,61:160.7,62:160.3,63:160.0,64:159.7,65:159.3,66:159.0,67:158.7,68:158.3,69:158.0,70:157.7,71:157.3,72:157.0,73:156.6,74:156.3,75:156.0,76:155.6,77:155.3,78:154.9,79:154.6,80:154.3},162:{51:164.9,52:164.6,53:164.3,54:164.0,55:163.6,56:163.3,57:163.0,58:162.6,59:162.3,60:162.0,61:161.7,62:161.3,63:161.0,64:160.7,65:160.4,66:160.0,67:159.7,68:159.4,69:159.0,70:158.7,71:158.3,72:158.0,73:157.7,74:157.3,75:157.0,76:156.7,77:156.3,78:156.0,79:155.6,80:155.3},163:{51:165.9,52:165.6,53:165.3,54:164.9,55:164.6,56:164.3,57:164.0,58:163.6,59:163.3,60:163.0,61:162.7,62:162.4,63:162.0,64:161.7,65:161.4,66:161.0,67:160.7,68:160.4,69:160.0,70:159.7,71:159.4,72:159.0,73:158.7,74:158.4,75:158.0,76:157.7,77:157.3,78:157.0,79:156.7,80:156.3},164:{51:166.9,52:166.6,53:166.2,54:165.9,55:165.6,56:165.3,57:165.0,58:164.6,59:164.3,60:164.0,61:163.7,62:163.4,63:163.0,64:162.7,65:162.4,66:162.0,67:161.7,68:161.4,69:161.1,70:160.7,71:160.4,72:160.1,73:159.7,74:159.4,75:159.0,76:158.7,77:158.4,78:158.0,79:157.7,80:157.4},165:{51:167.9,52:167.5,53:167.2,54:166.9,55:166.6,56:166.3,57:166.0,58:165.6,59:165.3,60:165.0,61:164.7,62:164.4,63:164.0,64:163.7,65:163.4,66:163.0,67:162.7,68:162.4,69:162.1,70:161.7,71:161.4,72:161.1,73:160.7,74:160.4,75:160.1,76:159.7,77:159.4,78:159.1,79:158.7,80:158.4},166:{51:168.8,52:168.5,53:168.2,54:167.9,55:167.6,56:167.3,57:167.0,58:166.6,59:166.3,60:166.0,61:165.7,62:165.4,63:165.0,64:164.7,65:164.4,66:164.1,67:163.7,68:163.4,69:163.1,70:162.8,71:162.4,72:162.1,73:161.8,74:161.4,75:161.1,76:160.8,77:160.4,78:160.1,79:159.8,80:159.4},167:{51:169.8,52:169.5,53:169.2,54:168.9,55:168.6,56:168.3,57:167.9,58:167.6,59:167.3,60:167.0,61:166.7,62:166.4,63:166.0,64:165.7,65:165.4,66:165.1,67:164.7,68:164.4,69:164.1,70:163.8,71:163.4,72:163.1,73:162.8,74:162.5,75:162.1,76:161.8,77:161.5,78:161.1,79:160.8,80:160.5},168:{51:170.8,52:170.5,53:170.2,54:169.9,55:169.6,56:169.2,57:168.9,58:168.6,59:168.3,60:168.0,61:167.7,62:167.4,63:167.0,64:166.7,65:166.4,66:166.1,67:165.8,68:165.4,69:165.1,70:164.8,71:164.5,72:164.1,73:163.8,74:163.5,75:163.2,76:162.8,77:162.5,78:162.2,79:161.8,80:161.5},169:{51:171.8,52:171.5,53:171.2,54:170.9,55:170.5,56:170.2,57:169.9,58:169.6,59:169.3,60:169.0,61:168.7,62:168.4,63:168.0,64:167.7,65:167.4,66:167.1,67:166.8,68:166.5,69:166.1,70:165.8,71:165.5,72:165.2,73:164.8,74:164.5,75:164.2,76:163.9,77:163.5,78:163.2,79:162.9,80:162.5},170:{51:172.8,52:172.4,53:172.1,54:171.8,55:171.5,56:171.2,57:170.9,58:170.6,59:170.3,60:170.0,61:169.7,62:169.4,63:169.0,64:168.7,65:168.4,66:168.1,67:167.8,68:167.5,69:167.2,70:166.8,71:166.5,72:166.2,73:165.9,74:165.5,75:165.2,76:164.9,77:164.6,78:164.2,79:163.9,80:163.6},171:{51:173.7,52:173.4,53:173.1,54:172.8,55:172.5,56:172.2,57:171.9,58:171.6,59:171.3,60:171.0,61:170.7,62:170.4,63:170.1,64:169.7,65:169.4,66:169.1,67:168.8,68:168.5,69:168.2,70:167.9,71:167.5,72:167.2,73:166.9,74:166.6,75:166.2,76:165.9,77:165.6,78:165.3,79:164.9,80:164.6},172:{51:174.7,52:174.4,53:174.1,54:173.8,55:173.5,56:173.2,57:172.9,58:172.6,59:172.3,60:172.0,61:171.7,62:171.4,63:171.1,64:170.8,65:170.4,66:170.1,67:169.8,68:169.5,69:169.2,70:168.9,71:168.6,72:168.2,73:167.9,74:167.6,75:167.3,76:167.0,77:166.6,78:166.3,79:166.0,80:165.7},173:{51:175.7,52:175.4,53:175.1,54:174.8,55:174.5,56:174.2,57:173.9,58:173.6,59:173.3,60:173.0,61:172.7,62:172.4,63:172.1,64:171.8,65:171.5,66:171.1,67:170.8,68:170.5,69:170.2,70:169.9,71:169.6,72:169.3,73:169.0,74:168.6,75:168.3,76:168.0,77:167.7,78:167.4,79:167.0,80:166.7},174:{51:176.7,52:176.4,53:176.1,54:175.8,55:175.5,56:175.2,57:174.9,58:174.6,59:174.3,60:174.0,61:173.7,62:173.4,63:173.1,64:172.8,65:172.5,66:172.2,67:171.8,68:171.6,69:171.2,70:170.9,71:170.6,72:170.3,73:170.0,74:169.7,75:169.3,76:169.0,77:168.7,78:168.4,79:168.1,80:167.7},175:{51:177.6,52:177.3,53:177.1,54:176.8,55:176.5,56:176.2,57:175.9,58:175.6,59:175.3,60:175.0,61:174.7,62:174.4,63:174.1,64:173.8,65:173.5,66:173.2,67:172.9,68:172.6,69:172.3,70:172.0,71:171.6,72:171.3,73:171.0,74:170.7,75:170.4,76:170.1,77:169.8,78:169.4,79:169.1,80:168.8},176:{51:178.6,52:178.3,53:178.0,54:177.8,55:177.5,56:177.2,57:176.9,58:176.6,59:176.3,60:176.0,61:175.7,62:175.4,63:175.1,64:174.8,65:174.5,66:174.2,67:173.9,68:173.6,69:173.3,70:173.0,71:172.7,72:172.4,73:172.1,74:171.7,75:171.4,76:171.1,77:170.8,78:170.5,79:170.2,80:169.8},177:{51:179.6,52:179.3,53:179.0,54:178.7,55:178.5,56:178.2,57:177.9,58:177.6,59:177.3,60:177.0,61:176.7,62:176.4,63:176.1,64:175.8,65:175.5,66:175.2,67:174.9,68:174.6,69:174.3,70:174.0,71:173.7,72:173.4,73:173.1,74:172.8,75:172.5,76:172.2,77:171.8,78:171.5,79:171.2,80:170.9},178:{51:180.6,52:180.3,53:180.0,54:179.7,55:179.4,56:179.1,57:178.9,58:178.6,59:178.3,60:178.0,61:177.7,62:177.4,63:177.1,64:176.8,65:176.5,66:176.2,67:176.0,68:175.7,69:175.4,70:175.0,71:174.7,72:174.4,73:174.1,74:173.8,75:173.5,76:173.2,77:172.9,78:172.6,79:172.3,80:172.0},179:{51:181.5,52:181.3,53:181.0,54:180.7,55:180.4,56:180.1,57:179.8,58:179.6,59:179.3,60:179.0,61:178.7,62:178.4,63:178.1,64:177.8,65:177.5,66:177.3,67:177.0,68:176.7,69:176.4,70:176.1,71:175.8,72:175.5,73:175.2,74:174.9,75:174.6,76:174.3,77:173.9,78:173.6,79:173.3,80:173.0},180:{51:182.5,52:182.2,53:182.0,54:181.7,55:181.4,56:181.1,57:180.8,58:180.6,59:180.3,60:180.0,61:179.7,62:179.4,63:179.1,64:178.8,65:178.6,66:178.3,67:178.0,68:177.7,69:177.4,70:177.1,71:176.8,72:176.5,73:176.2,74:175.9,75:175.6,76:175.3,77:175.0,78:174.7,79:174.4,80:174.1},181:{51:183.5,52:183.2,53:182.9,54:182.7,55:182.4,56:182.1,57:181.8,58:181.6,59:181.3,60:181.0,61:180.7,62:180.4,63:180.1,64:179.9,65:179.6,66:179.3,67:179.0,68:178.7,69:178.4,70:178.1,71:177.8,72:177.6,73:177.3,74:177.0,75:176.7,76:176.4,77:176.1,78:175.8,79:175.5,80:175.1},182:{51:184.4,52:184.2,53:183.9,54:183.6,55:183.4,56:183.1,57:182.8,58:182.5,59:182.3,60:182.0,61:181.7,62:181.4,63:181.2,64:180.9,65:180.6,66:180.3,67:180.0,68:179.8,69:179.5,70:179.2,71:178.9,72:178.6,73:178.3,74:178.0,75:177.7,76:177.4,77:177.1,78:176.8,79:176.5,80:176.2},183:{51:185.4,52:185.1,53:184.9,54:184.6,55:184.3,56:184.1,57:183.8,58:183.5,59:183.3,60:183.0,61:182.7,62:182.4,63:182.2,64:181.9,65:181.6,66:181.3,67:181.1,68:180.8,69:180.5,70:180.2,71:179.9,72:179.6,73:179.4,74:179.1,75:178.8,76:178.5,77:178.2,78:177.9,79:177.6,80:177.3},184:{51:186.4,52:186.1,53:185.9,54:185.6,55:185.3,56:185.1,57:184.8,58:184.5,59:184.3,60:184.0,61:183.7,62:183.5,63:183.2,64:182.9,65:182.6,66:182.4,67:182.1,68:181.8,69:181.5,70:181.3,71:181.0,72:180.7,73:180.4,74:180.1,75:179.8,76:179.5,77:179.2,78:179.0,79:178.7,80:178.4},185:{51:187.3,52:187.1,53:186.8,54:186.6,55:186.3,56:186.0,57:185.8,58:185.5,59:185.3,60:185.0,61:184.7,62:184.5,63:184.2,64:183.9,65:183.7,66:183.4,67:183.1,68:182.8,69:182.6,70:182.3,71:182.0,72:181.7,73:181.5,74:181.2,75:180.9,76:180.6,77:180.3,78:180.0,79:179.7,80:179.4},186:{51:188.3,52:188.0,53:187.8,54:187.5,55:187.3,56:187.0,57:186.8,58:186.5,59:186.3,60:186.0,61:185.7,62:185.5,63:185.2,64:185.0,65:184.7,66:184.4,67:184.1,68:183.9,69:183.6,70:183.3,71:183.1,72:182.8,73:182.5,74:182.2,75:181.9,76:181.7,77:181.4,78:181.1,79:180.8,80:180.5},187:{51:189.2,52:189.0,53:188.8,54:188.5,55:188.3,56:188.0,57:187.8,58:187.5,59:187.2,60:187.0,61:186.7,62:186.5,63:186.2,64:186.0,65:185.7,66:185.4,67:185.2,68:184.9,69:184.6,70:184.4,71:184.1,72:183.8,73:183.6,74:183.3,75:183.0,76:182.7,77:182.5,78:182.2,79:181.9,80:181.6},188:{51:190.2,52:190.0,53:189.7,54:189.5,55:189.2,56:189.0,57:188.7,58:188.5,59:188.2,60:188.0,61:187.7,62:187.5,63:187.2,64:187.0,65:186.7,66:186.5,67:186.2,68:186.0,69:185.7,70:185.4,71:185.2,72:184.9,73:184.6,74:184.4,75:184.1,76:183.8,77:183.5,78:183.3,79:183.0,80:182.7},189:{51:191.2,52:190.9,53:190.7,54:190.5,55:190.2,56:190.0,57:189.7,58:189.5,59:189.2,60:189.0,61:188.8,62:188.5,63:188.3,64:188.0,65:187.8,66:187.5,67:187.3,68:187.0,69:186.7,70:186.5,71:186.2,72:185.9,73:185.7,74:185.4,75:185.2,76:184.9,77:184.6,78:184.4,79:184.1,80:183.8},190:{51:192.1,52:191.9,53:191.7,54:191.4,55:191.2,56:191.0,57:190.7,58:190.5,59:190.2,60:190.0,61:189.8,62:189.5,63:189.3,64:189.0,65:188.8,66:188.5,67:188.3,68:188.0,69:187.8,70:187.5,71:187.3,72:187.0,73:186.8,74:186.5,75:186.2,76:186.0,77:185.7,78:185.4,79:185.2,80:184.9},191:{51:193.1,52:192.8,53:192.6,54:192.4,55:192.2,56:191.9,57:191.7,58:191.5,59:191.2,60:191.0,61:190.8,62:190.5,63:190.3,64:190.1,65:189.8,66:189.6,67:189.3,68:189.1,69:188.8,70:188.6,71:188.3,72:188.1,73:187.8,74:187.6,75:187.3,76:187.0,77:186.8,78:186.5,79:186.2,80:186.0},192:{51:194.0,52:193.8,53:193.6,54:193.4,55:193.1,56:192.9,57:192.7,58:192.5,59:192.2,60:192.0,61:191.8,62:191.5,63:191.3,64:191.1,65:190.8,66:190.6,67:190.4,68:190.1,69:189.9,70:189.6,71:189.4,72:189.1,73:188.9,74:188.6,75:188.4,76:188.1,77:187.9,78:187.6,79:187.3,80:187.1},193:{51:195.0,52:194.7,53:194.5,54:194.3,55:194.1,56:193.9,57:193.7,58:193.4,59:193.2,60:193.0,61:192.8,62:192.5,63:192.3,64:192.1,65:191.9,66:191.6,67:191.4,68:191.2,69:190.9,70:190.7,71:190.4,72:190.2,73:190.0,74:189.7,75:189.5,76:189.2,77:189.0,78:188.7,79:188.4,80:188.2},194:{51:195.9,52:195.7,53:195.5,54:195.3,55:195.1,56:194.9,57:194.6,58:194.4,59:194.2,60:194.0,61:193.8,62:193.6,63:193.3,64:193.1,65:192.9,66:192.7,67:192.4,68:192.2,69:192.0,70:191.7,71:191.5,72:191.3,73:191.0,74:190.8,75:190.5,76:190.3,77:190.0,78:189.8,79:189.5,80:189.3},195:{51:196.8,52:196.6,53:196.4,54:196.2,55:196.0,56:195.8,57:195.6,58:195.4,59:195.2,60:195.0,61:194.8,62:194.6,63:194.4,64:194.1,65:193.9,66:193.7,67:193.5,68:193.3,69:193.0,70:192.8,71:192.6,72:192.3,73:192.1,74:191.9,75:191.6,76:191.4,77:191.1,78:190.9,79:190.7,80:190.4},196:{51:197.8,52:197.6,53:197.4,54:197.2,55:197.0,56:196.8,57:196.6,58:196.4,59:196.2,60:196.0,61:195.8,62:195.6,63:195.4,64:195.2,65:195.0,66:194.7,67:194.5,68:194.3,69:194.1,70:193.9,71:193.6,72:193.4,73:193.2,74:192.9,75:192.7,76:192.5,77:192.2,78:192.0,79:191.8,80:191.5},197:{51:198.7,52:198.5,53:198.3,54:198.2,55:198.0,56:197.8,57:197.6,58:197.4,59:197.2,60:197.0,61:196.8,62:196.6,63:196.4,64:196.2,65:196.0,66:195.8,67:195.6,68:195.4,69:195.1,70:194.9,71:194.7,72:194.5,73:194.3,74:194.0,75:193.8,76:193.6,77:193.4,78:193.1,79:192.9,80:192.7},198:{51:199.7,52:199.5,53:199.3,54:199.1,55:198.9,56:198.8,57:198.6,58:198.4,59:198.2,60:198.0,61:197.8,62:197.6,63:197.4,64:197.2,65:197.0,66:196.8,67:196.6,68:196.4,69:196.2,70:196.0,71:195.8,72:195.6,73:195.3,74:195.1,75:194.9,76:194.7,77:194.5,78:194.3,79:194.0,80:193.8},199:{55:199.9,56:199.7,57:199.6,58:199.4,59:199.2,60:199.0,61:198.8,62:198.6,63:198.4,64:198.2,65:198.1,66:197.9,67:197.7,68:197.5,69:197.3,70:197.1,71:196.9,72:196.6,73:196.4,74:196.2,75:196.0,76:195.8,77:195.6,78:195.4,79:195.2,80:195.0},200:{60:200.0,61:199.8,62:199.6,63:199.5,64:199.3,65:199.1,66:198.9,67:198.7,68:198.5,69:198.3,70:198.1,71:197.9,72:197.7,73:197.5,74:197.3,75:197.1,76:196.9,77:196.7,78:196.5,79:196.3,80:196.1},201:{66:200.0,67:199.8,68:199.6,69:199.4,70:199.2,71:198.9,72:198.8,73:198.6,74:198.4,75:198.2,76:198.0,77:197.8,78:197.6,79:197.5,80:197.3},202:{71:200.0,72:199.9,73:199.7,74:199.5,75:199.3,76:199.2,77:199.0,78:198.8,79:198.7,80:198.5},203:{78:200.0,79:199.9,80:199.7}};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TTB TABLE (True Proof Calculator - correction-based)
+// ═══════════════════════════════════════════════════════════════════════════════
+const ttbTable={0:[0,0,0,0,0,0,0],10:[0.7,0.4,0,-0.4,-0.7,-1.1,-1.5],20:[1.5,0.7,0,-0.7,-1.5,-2.3,-3.1],30:[2.3,1.1,0,-1.2,-2.4,-3.6,-4.9],40:[3.2,1.6,0,-1.7,-3.4,-5.2,-7.0],50:[4.2,2.1,0,-2.2,-4.5,-6.8,-9.2],60:[5.2,2.6,0,-2.7,-5.5,-8.4,-11.4],70:[6.2,3.1,0,-3.2,-6.5,-9.9,-13.4],80:[7.2,3.6,0,-3.7,-7.5,-11.4,-15.5],90:[8.1,4.0,0,-4.2,-8.5,-12.9,-17.5],100:[9.0,4.5,0,-4.6,-9.4,-14.3,-19.4],110:[9.8,4.9,0,-5.0,-10.2,-15.5,-21.0],120:[10.5,5.2,0,-5.4,-10.9,-16.6,-22.5],130:[11.1,5.5,0,-5.7,-11.6,-17.6,-23.8],140:[11.6,5.8,0,-5.9,-12.0,-18.2,-24.7],150:[11.9,5.9,0,-6.1,-12.3,-18.7,-25.3],160:[12.0,6.0,0,-6.1,-12.4,-18.9,-25.6],170:[11.9,5.9,0,-6.0,-12.2,-18.6,-25.2],180:[11.5,5.7,0,-5.8,-11.8,-18.0,-24.4],190:[10.8,5.4,0,-5.5,-11.2,-17.1,-23.2],200:[10.0,5.0,0,-5.1,-10.4,-15.9,-21.6]};
+const ttbTemps=[40,50,60,70,80,90,100];
+
+function getCorrection(ap,tempF){tempF=Math.max(40,Math.min(100,tempF));ap=Math.max(0,Math.min(200,ap));let pL=Math.floor(ap/10)*10,pH=pL+10;if(pL===200){pL=190;pH=200;}const pF=(ap-pL)/10;let tI=0;for(let i=0;i<ttbTemps.length-1;i++){if(tempF>=ttbTemps[i]&&tempF<=ttbTemps[i+1]){tI=i;break;}}const tL=ttbTemps[tI],tH=ttbTemps[tI+1],tF=(tempF-tL)/(tH-tL);const rL=ttbTable[pL]||ttbTable[0],rH=ttbTable[pH]||ttbTable[200];const cL=rL[tI]+(rL[tI+1]-rL[tI])*tF,cH=rH[tI]+(rH[tI+1]-rH[tI])*tF;return cL+(cH-cL)*pF;}
+
+function densityOfEthanolWater(abv,tempC){const phi=abv/100,rhoE=0.78927-0.00083*tempC,rhoW=1.0-0.0003*tempC-0.000003*tempC*tempC,vc=1.0-phi*(1-phi)*0.0027;return(phi*rhoE+(1-phi)*rhoW)*vc;}
+function sgToABVNewton(sg,tempF){const tempC=(tempF-32)*5/9;let abv=(1.0-sg)*200;abv=Math.max(0,Math.min(100,abv));for(let i=0;i<30;i++){const d=densityOfEthanolWater(abv,tempC),diff=d-sg;if(Math.abs(diff)<0.000001)break;const d2=densityOfEthanolWater(abv+0.01,tempC),dD=(d2-d)/0.01;if(Math.abs(dD)<1e-10)break;abv-=diff/dD;abv=Math.max(0,Math.min(100,abv));}return abv;}
+function sgToABV(sg,tempF){if(sg<0.7893||sg>1.001)return null;return Math.max(0,Math.min(100,sgToABVNewton(sg,tempF)));}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════════════
+let currentPage='pass-tracker';
+function switchPage(page){
+  currentPage=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+page).classList.add('active');
+  const labels={'pass-tracker':'Pass Tracker','flow-rate':'Flow Rate','true-proof':'True Proof','dilution':'Dilution','pass-manager':'Pass Manager'};
+  document.getElementById('top-bar-tool').textContent=labels[page]||'';
+  const showPassPill=page==='pass-tracker';
+  document.getElementById('top-bar-pass').style.display=showPassPill?'':'none';
+  // Show pass actions in sidebar for pass-tracker and pass-manager
+  document.getElementById('sidebar-actions-pass').style.display='';
+  if(page==='pass-manager')renderPassManager();
+  closeSidebar();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PASS TRACKER STATE
+// ═══════════════════════════════════════════════════════════════════════════════
+let buckets=[],currentVol=0.5,currentTemp=60,currentAP=185.0,passLabel='',savedPasses=[];
+const CUR_KEY='passTracker_v2_current',SAVE_KEY='passTracker_v2_saves';
+
+(function boot(){
+  try{const r=localStorage.getItem(SAVE_KEY);if(r)savedPasses=JSON.parse(r);}catch(e){}
+  try{const r=localStorage.getItem(CUR_KEY);if(r){const s=JSON.parse(r);buckets=s.buckets||[];currentVol=s.currentVol||0.5;currentTemp=s.currentTemp!=null?s.currentTemp:60;currentAP=s.currentAP!=null?s.currentAP:185.0;passLabel=s.label||'';}}catch(e){}
+  updateVolDisplay();document.getElementById('inp-temp').value=currentTemp;document.getElementById('inp-ap').value=currentAP.toFixed(1);
+  updateTopBar();renderTable();
+  ['inp-ap','inp-temp'].forEach(id=>document.getElementById(id).addEventListener('keypress',e=>{if(e.key==='Enter')addBucket();}));
+  flowBoot();
+})();
+
+function stepVol(d){const n=Math.round((currentVol+d*0.5)*10)/10;if(n<0.5||n>5.0)return;currentVol=n;updateVolDisplay();autosave();}
+function updateVolDisplay(){document.getElementById('vol-display').textContent=currentVol.toFixed(1)+' gal';document.getElementById('vol-minus').disabled=currentVol<=0.5;document.getElementById('vol-plus').disabled=currentVol>=5.0;}
+function stepAP(d){const el=document.getElementById('inp-ap');let cur=parseFloat(el.value);if(isNaN(cur))cur=d>0?184.9:185.1;const next=Math.round((cur+d*0.1)*10)/10;if(next<151||next>203.9)return;el.value=next.toFixed(1);currentAP=next;autosave();}
+function syncAPFromInput(){const val=parseFloat(document.getElementById('inp-ap').value);if(!isNaN(val)&&val>=151&&val<=203.9){currentAP=val;autosave();}}
+function stepTemp(d){const el=document.getElementById('inp-temp');let cur=parseInt(el.value);if(isNaN(cur))cur=d>0?59:61;const next=cur+d;if(next<51||next>80)return;el.value=next;currentTemp=next;autosave();}
+function syncTempFromInput(){const val=parseInt(document.getElementById('inp-temp').value);if(!isNaN(val)&&val>=51&&val<=80){currentTemp=val;autosave();}}
+
+function addBucket(){
+  const err=document.getElementById('error');err.classList.remove('show');
+  const apRaw=document.getElementById('inp-ap').value.trim(),tRaw=document.getElementById('inp-temp').value.trim();
+  if(!apRaw||!tRaw){showErr('error','Enter apparent proof and temperature.');return;}
+  const apF=parseFloat(apRaw),t=parseInt(tRaw,10);
+  if(isNaN(apF)||apF<151||apF>203.9){showErr('error','Apparent proof must be 151–203.');return;}
+  if(isNaN(t)||!Number.isInteger(Number(tRaw))){showErr('error','Temperature must be a whole number.');return;}
+  if(t<51||t>80){showErr('error','Temperature out of range (51–80°F).');return;}
+  const apW=Math.floor(apF),apD=Math.round((apF-apW)*10)/10;
+  if(!TABLE[apW]){showErr('error','Out of table range.');return;}
+  if(TABLE[apW][t]===undefined){showErr('error','No entry for proof '+apW+' at '+t+'°F.');return;}
+  const tpBase=TABLE[apW][t];let tp;
+  if(apD>0&&TABLE[apW+1]&&TABLE[apW+1][t]!==undefined){tp=Math.round((tpBase+(TABLE[apW+1][t]-tpBase)*apD)*10)/10;}else{tp=tpBase;}
+  const vol=currentVol,pfGal=(tp*vol)/100;
+  buckets.push({apF,apW,apD,t,tp,vol,pfGal});currentAP=apF;currentTemp=t;
+  document.getElementById('inp-ap').focus();document.getElementById('result-card').classList.remove('visible');
+  renderTable();autosave();autoSaveToPass();
+}
+function renderTable(){
+  const empty=document.getElementById('bucket-empty'),scroll=document.getElementById('table-scroll'),tbody=document.getElementById('bucket-tbody'),tfoot=document.getElementById('bucket-tfoot'),cnt=document.getElementById('bucket-count'),fin=document.getElementById('btn-finish');
+  cnt.textContent=buckets.length===1?'1 bucket':buckets.length+' buckets';
+  if(!buckets.length){empty.style.display='block';scroll.style.display='none';fin.disabled=true;return;}
+  empty.style.display='none';scroll.style.display='block';fin.disabled=false;tbody.innerHTML='';
+  buckets.forEach((b,i)=>{const tr=document.createElement('tr');const apL=b.apD>0?b.apF.toFixed(1):b.apW;tr.innerHTML='<td><span class="bucket-num">#'+String(i+1).padStart(2,'0')+'</span></td><td>'+apL+'°</td><td>'+b.t+'°F</td><td><span class="proof-val">'+b.tp.toFixed(1)+'</span></td><td><span class="vol-val">'+b.vol.toFixed(1)+' gal</span></td><td class="right"><span class="pf-gal-val">'+b.pfGal.toFixed(3)+'</span></td><td class="right"><button class="remove-btn" onclick="removeBucket('+i+')">✕</button></td>';tbody.appendChild(tr);});
+  const tV=buckets.reduce((s,b)=>s+b.vol,0),tP=buckets.reduce((s,b)=>s+b.pfGal,0),aP=tV>0?(tP/tV)*100:0;
+  tfoot.innerHTML='<tr class="totals-row"><td colspan="3"><span class="tot-label">Running Total</span></td><td><span class="tot-val">'+aP.toFixed(1)+'°</span> <span style="font-size:0.58rem;color:var(--text-dim)">avg</span></td><td><span class="tot-val">'+tV.toFixed(1)+'</span> <span style="font-size:0.58rem;color:var(--text-dim)">gal</span></td><td class="right"><span class="tot-val">'+tP.toFixed(3)+'</span></td><td></td></tr>';
+}
+function removeBucket(i){buckets.splice(i,1);renderTable();document.getElementById('result-card').classList.remove('visible');autosave();autoSaveToPass();}
+function finishPass(){if(!buckets.length)return;const tV=buckets.reduce((s,b)=>s+b.vol,0),tP=buckets.reduce((s,b)=>s+b.pfGal,0),aP=tV>0?(tP/tV)*100:0;document.getElementById('res-gallons').textContent=tV.toFixed(2);document.getElementById('res-proof').textContent=aP.toFixed(1);document.getElementById('res-buckets').textContent=buckets.length;document.getElementById('res-pfgal').textContent=tP.toFixed(3);document.getElementById('res-abv').textContent=(aP/2).toFixed(2)+'%';document.getElementById('result-card').classList.add('visible');document.getElementById('result-card').scrollIntoView({behavior:'smooth',block:'nearest'});}
+
+function savePass(){closeSidebar();document.getElementById('modal-label').value=passLabel||'';document.getElementById('save-modal').classList.add('open');setTimeout(()=>document.getElementById('modal-label').focus(),220);}
+function confirmSave(){const lbl=document.getElementById('modal-label').value.trim();if(!lbl){document.getElementById('modal-label').focus();return;}closeModal();const dateStr=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});let result=null;if(buckets.length){const tV=buckets.reduce((s,b)=>s+b.vol,0),tP=buckets.reduce((s,b)=>s+b.pfGal,0);result={gallons:tV.toFixed(2),proof:tV>0?((tP/tV)*100).toFixed(1):'0.0'};}savedPasses=savedPasses.filter(p=>p.label!==lbl);savedPasses.unshift({id:Date.now(),label:lbl,date:dateStr,buckets:JSON.parse(JSON.stringify(buckets)),result});persistSaves();passLabel=lbl;updateTopBar();autosave();}
+function closeModal(){document.getElementById('save-modal').classList.remove('open');}
+function newPass(){buckets=[];passLabel='';currentAP=185.0;currentTemp=60;updateTopBar();renderTable();document.getElementById('inp-ap').value=currentAP.toFixed(1);document.getElementById('inp-temp').value=currentTemp;document.getElementById('result-card').classList.remove('visible');document.getElementById('error').classList.remove('show');autosave();closeSidebar();}
+function loadPass(id){const p=savedPasses.find(x=>x.id===id);if(!p)return;buckets=JSON.parse(JSON.stringify(p.buckets));passLabel=p.label;updateTopBar();renderTable();document.getElementById('result-card').classList.remove('visible');autosave();switchPage('pass-tracker');}
+
+// Delete with confirmation
+let pendingDeleteId=null;
+function requestDelete(id){pendingDeleteId=id;const p=savedPasses.find(x=>x.id===id);document.getElementById('delete-modal-sub').textContent='Are you sure you want to delete "'+((p&&p.label)||'this pass')+'"? This cannot be undone.';document.getElementById('delete-modal').classList.add('open');}
+function confirmDelete(){if(pendingDeleteId!==null){savedPasses=savedPasses.filter(p=>p.id!==pendingDeleteId);persistSaves();pendingDeleteId=null;}closeDeleteModal();renderPassManager();}
+function closeDeleteModal(){document.getElementById('delete-modal').classList.remove('open');pendingDeleteId=null;}
+
+function renderPassManager(){
+  const el=document.getElementById('pm-list');
+  if(!savedPasses.length){el.innerHTML='<div class="saves-empty"><div class="empty-icon">📋</div>No saved passes yet. Use "Save Current Pass" in the menu.</div>';return;}
+  el.innerHTML=savedPasses.map(p=>'<div class="save-item"><div class="save-item-row1"><div class="save-item-name">'+p.label+'</div><div class="save-item-date">'+p.date+'</div></div><div class="save-item-result '+(p.result?'':'wip')+'">'+(p.result?p.result.gallons+' gal @ '+p.result.proof+'°':p.buckets.length+' bucket'+(p.buckets.length!==1?'s':'')+' · in progress')+'</div><div class="save-item-btns"><button class="si-btn si-edit" onclick="loadPass('+p.id+')">✎ Load</button><button class="si-btn si-del" onclick="requestDelete('+p.id+')">✕ Delete</button></div></div>').join('');
+}
+
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('sidebar-overlay').classList.add('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('open');}
+function updateTopBar(){document.getElementById('top-bar-pass').textContent=passLabel||'New Pass';}
+function autosave(){try{localStorage.setItem(CUR_KEY,JSON.stringify({buckets,currentVol,currentTemp,currentAP,label:passLabel}));}catch(e){}}
+function persistSaves(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(savedPasses));}catch(e){}}
+function autoSaveToPass(){if(!passLabel)return;const idx=savedPasses.findIndex(p=>p.label===passLabel);if(idx===-1)return;let result=null;if(buckets.length){const tV=buckets.reduce((s,b)=>s+b.vol,0),tP=buckets.reduce((s,b)=>s+b.pfGal,0);result={gallons:tV.toFixed(2),proof:tV>0?((tP/tV)*100).toFixed(1):'0.0'};}savedPasses[idx]={...savedPasses[idx],buckets:JSON.parse(JSON.stringify(buckets)),result};persistSaves();}
+
+function exportData(){const payload={version:2,exportedAt:new Date().toISOString(),current:{buckets,currentVol,currentTemp,currentAP,label:passLabel},saves:savedPasses};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='distillery-tools-backup-'+new Date().toISOString().slice(0,10)+'.json';a.style.display='none';document.body.appendChild(a);a.click();setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);closeSidebar();}
+function importData(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=function(e){try{const data=JSON.parse(e.target.result);if(Array.isArray(data.saves)){savedPasses=data.saves;persistSaves();}if(data.current){buckets=data.current.buckets||[];currentVol=data.current.currentVol||0.5;currentTemp=data.current.currentTemp!=null?data.current.currentTemp:60;currentAP=data.current.currentAP!=null?data.current.currentAP:185.0;passLabel=data.current.label||'';}autosave();updateVolDisplay();document.getElementById('inp-temp').value=currentTemp;document.getElementById('inp-ap').value=currentAP.toFixed(1);updateTopBar();renderTable();closeSidebar();}catch(err){showErr('error','Import failed.');}};reader.readAsText(file);event.target.value='';}
+
+function showErr(id,msg){const el=document.getElementById(id);el.textContent=msg;el.classList.add('show');}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FLOW RATE
+// ═══════════════════════════════════════════════════════════════════════════════
+const FLOW_KEY='distTools_flowRate';
+let swRunning=false,swStartTime=null,swElapsed=0,swInterval=null;
+let flowActive=false,flowPaused=false,flowTargetVol=0,flowRateMPG=0,flowCollected=0,flowAnchorTime=null,flowFinishMs=null,flowCountdownInt=null;
+
+function flowBoot(){try{const r=localStorage.getItem(FLOW_KEY);if(r){const s=JSON.parse(r);if(s.flowActive){flowActive=true;flowTargetVol=s.flowTargetVol;flowRateMPG=s.flowRateMPG;flowCollected=s.flowCollected;flowAnchorTime=s.flowAnchorTime;document.getElementById('flow-target').value=flowTargetVol;document.getElementById('flow-rate').value=flowRateMPG;flowResumeCountdown();document.getElementById('flow-status').classList.add('active');document.getElementById('flow-clear-btn').style.display='';document.getElementById('flow-go-btn').textContent='⟳  Update';}}}catch(e){}}
+function flowSaveState(){try{localStorage.setItem(FLOW_KEY,JSON.stringify({flowActive,flowTargetVol,flowRateMPG,flowCollected,flowAnchorTime}));}catch(e){}}
+
+function swStart(){
+  if(swRunning){
+    swRunning=false;clearInterval(swInterval);swElapsed+=Date.now()-swStartTime;
+    const mins=swElapsed/60000,rate=Math.round(mins*10)/10;
+    document.getElementById('flow-rate').value=rate.toFixed(1);flowRateMPG=rate;
+    if(flowActive){flowCollected=flowCollected+1;flowAnchorTime=Date.now();flowPaused=false;flowRecalcCountdown();flowSaveState();}
+    else{const target=parseFloat(document.getElementById('flow-target').value);if(!isNaN(target)&&target>0&&rate>0){flowTargetVol=target;flowRateMPG=rate;flowCollected=1;flowAnchorTime=Date.now();flowActive=true;flowPaused=false;flowResumeCountdown();flowSaveState();document.getElementById('flow-go-btn').textContent='⟳  Update';document.getElementById('flow-status').classList.add('active');document.getElementById('flow-clear-btn').style.display='';}}
+    document.getElementById('sw-start').textContent='▶ Start';document.getElementById('sw-start').className='sw-btn sw-btn-start';document.getElementById('sw-reset').style.display='';document.getElementById('sw-time').classList.remove('running');flowRecalcFromRate();
+  }else{
+    swRunning=true;swStartTime=Date.now();
+    if(flowActive&&!flowPaused){flowPaused=true;flowCollected=getCurrentCollected();flowAnchorTime=null;updateCountdownDisplay();}
+    swInterval=setInterval(swUpdateDisplay,50);
+    document.getElementById('sw-start').textContent='◼ Stop';document.getElementById('sw-start').className='sw-btn sw-btn-stop';document.getElementById('sw-reset').style.display='none';document.getElementById('sw-time').classList.add('running');
+  }
+}
+function swReset(){swElapsed=0;document.getElementById('sw-time').textContent='0:00.0';}
+function swUpdateDisplay(){const total=swElapsed+(Date.now()-swStartTime),secs=total/1000,m=Math.floor(secs/60),s=Math.floor(secs%60),d=Math.floor((secs*10)%10);document.getElementById('sw-time').textContent=m+':'+String(s).padStart(2,'0')+'.'+d;}
+function stepFlowRate(d){const el=document.getElementById('flow-rate');let cur=parseFloat(el.value);if(isNaN(cur))cur=d>0?0:1;const next=Math.round((cur+d)*10)/10;if(next<0.1)return;el.value=next.toFixed(1);flowRecalcFromRate();}
+function flowRecalcFromRate(){document.getElementById('flow-error').classList.remove('show');const target=parseFloat(document.getElementById('flow-target').value),rate=parseFloat(document.getElementById('flow-rate').value);if(!isNaN(target)&&target>0&&!isNaN(rate)&&rate>0){const remaining=flowActive?Math.max(0,target-getCurrentCollected()):target;const fd=new Date(Date.now()+remaining*rate*60000);document.getElementById('flow-finish-time').value=String(fd.getHours()).padStart(2,'0')+':'+String(fd.getMinutes()).padStart(2,'0');}if(flowActive&&!flowPaused){const nr=parseFloat(document.getElementById('flow-rate').value);if(!isNaN(nr)&&nr>0){flowCollected=getCurrentCollected();flowRateMPG=nr;flowAnchorTime=Date.now();flowRecalcCountdown();flowSaveState();}}}
+function flowRecalcFromTime(){document.getElementById('flow-error').classList.remove('show');const target=parseFloat(document.getElementById('flow-target').value),timeStr=document.getElementById('flow-finish-time').value;if(!timeStr||isNaN(target)||target<=0)return;const[hh,mm]=timeStr.split(':').map(Number),now=new Date(),ft=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm,0);if(ft<=now)ft.setDate(ft.getDate()+1);const remaining=flowActive?Math.max(0.1,target-getCurrentCollected()):target;const mL=(ft-now)/60000,rate=Math.round((mL/remaining)*10)/10;if(rate>0)document.getElementById('flow-rate').value=rate.toFixed(1);if(flowActive&&!flowPaused){const nr=parseFloat(document.getElementById('flow-rate').value);if(!isNaN(nr)&&nr>0){flowCollected=getCurrentCollected();flowRateMPG=nr;flowAnchorTime=Date.now();flowRecalcCountdown();flowSaveState();}}}
+function flowStart(){document.getElementById('flow-error').classList.remove('show');const target=parseFloat(document.getElementById('flow-target').value),rate=parseFloat(document.getElementById('flow-rate').value);if(isNaN(target)||target<=0){showErr('flow-error','Enter a target volume.');return;}if(isNaN(rate)||rate<=0){showErr('flow-error','Enter a flow rate or time a gallon.');return;}flowTargetVol=target;flowRateMPG=rate;flowCollected=0;flowAnchorTime=Date.now();flowActive=true;flowPaused=false;flowResumeCountdown();flowSaveState();document.getElementById('flow-go-btn').textContent='⟳  Update';document.getElementById('flow-status').classList.add('active');document.getElementById('flow-clear-btn').style.display='';}
+function flowResumeCountdown(){if(flowCountdownInt)clearInterval(flowCountdownInt);flowRecalcCountdown();flowCountdownInt=setInterval(flowTick,1000);}
+function flowRecalcCountdown(){if(!flowActive)return;const remaining=Math.max(0,flowTargetVol-getCurrentCollected());flowFinishMs=Date.now()+remaining*flowRateMPG*60000;}
+function getCurrentCollected(){if(!flowActive)return 0;if(flowPaused||!flowAnchorTime)return flowCollected;const eM=(Date.now()-flowAnchorTime)/60000;return Math.min(flowTargetVol,flowCollected+(flowRateMPG>0?eM/flowRateMPG:0));}
+function flowTick(){if(!flowActive)return;const c=getCurrentCollected(),r=Math.max(0,flowTargetVol-c);document.getElementById('fs-collected').textContent=c.toFixed(1)+' gal';document.getElementById('fs-remaining').textContent=r.toFixed(1)+' gal';document.getElementById('fs-rate').textContent=flowRateMPG.toFixed(1)+' min/gal';if(flowPaused){document.getElementById('fs-finish').textContent='Paused (timing)';}else{const fd=new Date(flowFinishMs),h=fd.getHours(),m=String(fd.getMinutes()).padStart(2,'0'),ap=h>=12?'PM':'AM',h12=h%12||12;document.getElementById('fs-finish').textContent=h12+':'+m+' '+ap;}updateCountdownDisplay();if(r<=0&&!flowPaused)flowDone();}
+function updateCountdownDisplay(){const el=document.getElementById('top-bar-countdown');if(!flowActive){el.classList.remove('active','paused');return;}el.classList.add('active');if(flowPaused){el.classList.add('paused');document.getElementById('countdown-display').textContent='PAUSED';document.getElementById('countdown-finish-time').textContent='';return;}el.classList.remove('paused');const fd=new Date(flowFinishMs),fh=fd.getHours(),fm=String(fd.getMinutes()).padStart(2,'0'),ap=fh>=12?'PM':'AM',fh12=fh%12||12;document.getElementById('countdown-finish-time').textContent=fh12+':'+fm+' '+ap+' · ';const msL=flowFinishMs-Date.now();if(msL<=0){document.getElementById('countdown-display').textContent='0:00';return;}const tS=Math.floor(msL/1000),hrs=Math.floor(tS/3600),mins=Math.floor((tS%3600)/60),secs=tS%60;document.getElementById('countdown-display').textContent=hrs>0?hrs+':'+String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0'):mins+':'+String(secs).padStart(2,'0');}
+function flowDone(){flowActive=false;flowPaused=false;if(flowCountdownInt){clearInterval(flowCountdownInt);flowCountdownInt=null;}document.getElementById('top-bar-countdown').classList.remove('active','paused');document.getElementById('fs-finish').textContent='Complete';document.getElementById('fs-remaining').textContent='0.0 gal';document.getElementById('fs-collected').textContent=flowTargetVol.toFixed(1)+' gal';try{localStorage.removeItem(FLOW_KEY);}catch(e){}}
+function flowClear(){flowActive=false;flowPaused=false;if(flowCountdownInt){clearInterval(flowCountdownInt);flowCountdownInt=null;}flowCollected=0;flowAnchorTime=null;flowFinishMs=null;document.getElementById('top-bar-countdown').classList.remove('active','paused');document.getElementById('flow-status').classList.remove('active');document.getElementById('flow-clear-btn').style.display='none';document.getElementById('flow-go-btn').textContent='▶  Start Countdown';document.getElementById('flow-target').value='';document.getElementById('flow-rate').value='';document.getElementById('flow-finish-time').value='';document.getElementById('flow-correction-input').value='';swRunning=false;swElapsed=0;if(swInterval)clearInterval(swInterval);document.getElementById('sw-time').textContent='0:00.0';document.getElementById('sw-time').classList.remove('running');document.getElementById('sw-start').textContent='▶ Start';document.getElementById('sw-start').className='sw-btn sw-btn-start';document.getElementById('sw-reset').style.display='none';try{localStorage.removeItem(FLOW_KEY);}catch(e){}}
+function applyCorrection(){const val=parseFloat(document.getElementById('flow-correction-input').value);if(isNaN(val)||val<0)return;flowCollected=Math.min(val,flowTargetVol);flowAnchorTime=Date.now();flowRecalcCountdown();flowSaveState();document.getElementById('flow-correction-input').value='';}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRUE PROOF CALCULATOR
+// ═══════════════════════════════════════════════════════════════════════════════
+function tpSwitchTab(name){document.querySelectorAll('.tp-tab').forEach((t,i)=>{const names=['standard','precise','abv'];t.classList.toggle('active',names[i]===name);});document.querySelectorAll('.tp-panel').forEach(p=>p.classList.remove('active'));document.getElementById('tp-tab-'+name).classList.add('active');tpReset();}
+function tpReset(){document.querySelectorAll('#page-true-proof input[type="number"]').forEach(i=>i.value='');document.getElementById('tp-result').classList.remove('visible');document.getElementById('tp-error').classList.remove('show');}
+function toF(val,unit){return unit==='C'?val*9/5+32:val;}
+function tpShowResult(proof,abv,correction,method){document.getElementById('tp-res-proof').textContent=proof.toFixed(2);document.getElementById('tp-res-abv').textContent=abv.toFixed(3)+'%';document.getElementById('tp-res-correction').textContent=(correction>=0?'+':'')+correction.toFixed(2)+' proof';document.getElementById('tp-res-method').textContent=method;document.getElementById('tp-result').classList.add('visible');document.getElementById('tp-result').scrollIntoView({behavior:'smooth',block:'nearest'});}
+
+function calcStandard(){document.getElementById('tp-error').classList.remove('show');const ap=parseFloat(document.getElementById('ap_proof').value),tR=parseFloat(document.getElementById('ap_temp').value),unit=document.getElementById('ap_unit').value;if(isNaN(ap)||isNaN(tR)){showErr('tp-error','Enter both apparent proof and temperature.');return;}if(ap<0||ap>200){showErr('tp-error','Apparent proof must be 0–200.');return;}const tF=toF(tR,unit);if(tF<40||tF>100){showErr('tp-error','Temperature must be 40–100°F.');return;}const corr=getCorrection(ap,tF),tp=ap+corr;tpShowResult(tp,tp/2,corr,'TTB Table 1');}
+function calcSG(){document.getElementById('tp-error').classList.remove('show');const sg=parseFloat(document.getElementById('sg_val').value),tR=parseFloat(document.getElementById('sg_temp').value),unit=document.getElementById('sg_unit').value;if(isNaN(sg)||isNaN(tR)){showErr('tp-error','Enter specific gravity and temperature.');return;}if(sg<0.7893||sg>1.001){showErr('tp-error','SG must be 0.7893–1.000.');return;}const tF=toF(tR,unit),tC=(tF-32)*5/9,abv=sgToABV(sg,tF);if(abv===null){showErr('tp-error','SG out of range.');return;}const dT=tC-15.56,corr=-abv*0.00109*dT*2,trueABV=abv+abv*0.00109*dT;tpShowResult(trueABV*2,trueABV,corr,'SG → OIML Model');}
+function calcABV(){document.getElementById('tp-error').classList.remove('show');const abv=parseFloat(document.getElementById('abv_val').value),tR=parseFloat(document.getElementById('abv_temp').value),unit=document.getElementById('abv_unit').value;if(isNaN(abv)){showErr('tp-error','Enter an ABV value.');return;}if(abv<0||abv>100){showErr('tp-error','ABV must be 0–100.');return;}const tF=toF(tR||60,unit),tC=(tF-32)*5/9,dT=tC-15.56;const trueABV=isNaN(tR)?abv:abv+abv*0.00109*dT;const corr=trueABV*2-abv*2;tpShowResult(trueABV*2,trueABV,corr,'ABV × 2 + Thermal');}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DILUTION CALCULATOR
+// ═══════════════════════════════════════════════════════════════════════════════
+const toGal={gal:1,L:0.264172,mL:0.000264172,qt:0.25,oz:0.0078125};
+const fromGal={gal:1,L:3.78541,mL:3785.41,qt:4,oz:128};
+const unitLbl={gal:'gal',L:'L',mL:'mL',qt:'qt',oz:'fl oz'};
+function toGallons(v,u){return v*toGal[u];}
+function fromGallons(v,u){return v*fromGal[u];}
+function fmt(n,d=2){return Math.abs(n)>=10000?n.toLocaleString('en-US',{maximumFractionDigits:0}):n.toFixed(d);}
+
+function dilSetTarget(val,btn){document.getElementById('dil-tgt-proof').value=val;document.querySelectorAll('#page-dilution .preset').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+function dilSyncUnits(){const u=document.getElementById('dil-vol-unit').value;document.getElementById('dil-water-unit').value=u==='oz'?'oz':u;}
+function dilReset(){['dil-vol','dil-cur-proof'].forEach(id=>document.getElementById(id).value='');document.getElementById('dil-tgt-proof').value='80';document.querySelectorAll('#page-dilution .preset').forEach((b,i)=>b.classList.toggle('active',i===0));document.getElementById('dil-results').classList.remove('show');document.getElementById('dil-error').classList.remove('show');}
+function dilCalculate(){
+  document.getElementById('dil-error').classList.remove('show');
+  const vR=parseFloat(document.getElementById('dil-vol').value),vU=document.getElementById('dil-vol-unit').value,cP=parseFloat(document.getElementById('dil-cur-proof').value),tP=parseFloat(document.getElementById('dil-tgt-proof').value),wU=document.getElementById('dil-water-unit').value;
+  if(isNaN(vR)||vR<=0){showErr('dil-error','Enter a valid spirit volume.');return;}
+  if(isNaN(cP)||cP<=0){showErr('dil-error','Enter current proof.');return;}
+  if(isNaN(tP)||tP<=0){showErr('dil-error','Enter target proof.');return;}
+  if(tP>=cP){showErr('dil-error','Target proof must be lower than current proof.');return;}
+  if(cP>200||tP>200){showErr('dil-error','Proof cannot exceed 200.');return;}
+  const vG=toGallons(vR,vU),wB=vG*(cP/tP-1);
+  const pD=cP-tP,cF=1+(pD/200)*0.004*(cP/100),wC=wB*cF;
+  const fVG=vG+wC,vP=(vG*cP)/fVG;
+  const pgB=vG*(cP/100),aG=vG*(cP/200);
+  const wD=fromGallons(wC,wU),wAU=wU==='gal'?'L':'gal',wA=fromGallons(wC,wAU),fVD=fromGallons(fVG,vU),aD=fromGallons(aG,wU);
+  const gP=(wC/vG*100);
+  document.getElementById('dil-res-water').textContent=fmt(wD);
+  document.getElementById('dil-res-water-unit').textContent=unitLbl[wU];
+  document.getElementById('dil-res-water-alt').textContent='≈ '+fmt(wA,2)+' '+unitLbl[wAU];
+  document.getElementById('dil-res-final-vol').textContent=fmt(fVD)+' '+unitLbl[vU];
+  document.getElementById('dil-res-final-vol-sub').textContent=fmt(fromGallons(fVG,'L'))+' L';
+  document.getElementById('dil-res-final-proof').textContent=fmt(vP)+'°';
+  document.getElementById('dil-res-pg').textContent=fmt(pgB,2)+' PG';
+  document.getElementById('dil-res-alcohol').textContent=fmt(aD,2)+' '+unitLbl[wU];
+  document.getElementById('dil-res-ratio').textContent=fmt(vG/wC,2)+' : 1';
+  document.getElementById('dil-res-gain').textContent='+'+fmt(gP,1)+'%';
+  document.getElementById('dil-results').classList.add('show');
+  document.getElementById('dil-results').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+</script>
+</body>
+</html>
